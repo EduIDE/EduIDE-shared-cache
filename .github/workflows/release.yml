@@ -12,6 +12,7 @@ jobs:
   release:
     permissions:
       contents: write
+      packages: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,20 +20,32 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure Git
-        run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-
       - name: Install Helm
         uses: azure/setup-helm@v4
 
       - name: Update chart dependencies
         run: helm dependency update ./chart
 
-      - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.6.0
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Set registry owner
+        run: echo "REGISTRY_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Extract chart version
+        id: chart
+        run: |
+          VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Package and push to OCI
+        run: |
+          helm package ./chart
+          helm push theia-shared-cache-${{ steps.chart.outputs.version }}.tgz oci://ghcr.io/${{ env.REGISTRY_OWNER }}/charts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          charts_dir: "."
+          tag_name: theia-shared-cache-${{ steps.chart.outputs.version }}
+          name: theia-shared-cache ${{ steps.chart.outputs.version }}
+          generate_release_notes: true
