@@ -21,21 +21,13 @@ Gradle Build Cache has been deployed!
            url = uri("$CACHE_URL/cache/")
            {{- if .Values.auth.enabled }}
            credentials {
-               username = "{{ .Values.auth.username }}"
+               username = "{{ .Values.auth.reader.username }}"
                password = "<your-password>"
            }
            {{- end }}
            isPush = true
        }
    }
-
-5. MinIO console (for debugging):
-
-   kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-minio 9001:9001
-
-   Then open http://localhost:9001
-   Username: minioadmin
-   Password: minioadmin
 {{- else }}
 Gradle Build Cache is disabled (enabled: false).
 No resources have been deployed.
@@ -43,7 +35,7 @@ No resources have been deployed.
 
 {{- if .Values.reposilite.enabled }}
 
-6. Reposilite (Maven/Gradle Dependency Proxy):
+5. Reposilite (Maven/Gradle Dependency Proxy):
 
    Internal URL: http://{{ .Release.Name }}-reposilite:8080
 
@@ -57,7 +49,7 @@ No resources have been deployed.
    Maven repository URL (for Gradle):
    http://{{ .Release.Name }}-reposilite:8080/releases
 
-7. Theia Pod Configuration:
+6. Theia Pod Configuration:
 
    Set these environment variables in your Theia pods:
 

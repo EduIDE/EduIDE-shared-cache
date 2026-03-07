@@ -30,23 +30,26 @@ jobs:
           sed -i "s/^version: .*/version: ${PREVIEW_VERSION}/" chart/Chart.yaml
           echo "PREVIEW_VERSION=${PREVIEW_VERSION}" >> $GITHUB_ENV
 
+      - name: Set registry owner
+        run: echo "REGISTRY_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Login to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Package and push
         run: |
           helm package ./chart
-          helm push theia-shared-cache-${PREVIEW_VERSION}.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
+          helm push theia-shared-cache-${PREVIEW_VERSION}.tgz oci://ghcr.io/${{ env.REGISTRY_OWNER }}/charts
 
       - name: Comment install instructions
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: chart-preview
           message: |
-            ## 📦 Chart Preview Ready
+            ## Chart Preview Ready
 
             ```bash
-            helm install test oci://ghcr.io/${{ github.repository_owner }}/charts/theia-shared-cache --version ${{ env.PREVIEW_VERSION }}
+            helm install test oci://ghcr.io/${{ env.REGISTRY_OWNER }}/charts/theia-shared-cache --version ${{ env.PREVIEW_VERSION }}
             ```
 
             _Updated: ${{ github.sha }}_
