@@ -18,6 +18,6 @@ spec:
       targetPort: metrics
       protocol: TCP
   selector:
-    {{- include "theia-shared-cache.selectorLabels" . | nindent 6 }}
+    {{- include "theia-shared-cache.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: storage
 {{- end }}
