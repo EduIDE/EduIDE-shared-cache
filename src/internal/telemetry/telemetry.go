@@ -2,13 +2,14 @@ package telemetry
 
 import (
 	"context"
+	"time"
+
 	"github.com/getsentry/sentry-go"
 	sentryotel "github.com/getsentry/sentry-go/otel"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"time"
 )
 
 func SetupTelemetry(sentryEnabled bool, sentryDSN string) (func(), error) {
@@ -21,7 +22,7 @@ func SetupTelemetry(sentryEnabled bool, sentryDSN string) (func(), error) {
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(exporter))
 	otel.SetMeterProvider(provider)
 
-	// setup sentry
+	// sentry setup
 
 	if !sentryEnabled {
 		return nil, nil
