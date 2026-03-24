@@ -5,7 +5,7 @@ description: A Gradle Build Cache server with Redis backend for Theia IDE deploy
 type: application
 
 # Chart version - bump for breaking changes
-version: 0.3.1
+version: 0.4.0
 
 # Application version - matches the cache server version
 appVersion: "0.1.0"
