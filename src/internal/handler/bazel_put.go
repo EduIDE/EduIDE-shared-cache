@@ -1,11 +1,12 @@
 package handler
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kevingruber/gradle-cache/internal/storage"
@@ -33,7 +34,7 @@ func (h *BazelHandler) put(c *gin.Context, store storage.Storage, cacheType stri
 
 	attrs := metric.WithAttributes(attribute.String("cache_type", cacheType))
 
-	// Check Content-Length for size validation
+	// Early rejection if Content-Length is known and too large
 	contentLength := c.Request.ContentLength
 	if contentLength > h.maxEntrySize {
 		h.logger.Warn().
@@ -46,45 +47,131 @@ func (h *BazelHandler) put(c *gin.Context, store storage.Storage, cacheType stri
 		return
 	}
 
-	// Read the body (needed for both hash verification and chunked transfers)
-	limitedReader := io.LimitReader(c.Request.Body, h.maxEntrySize+1)
-	data, err := io.ReadAll(limitedReader)
+	if verifyHash {
+		h.putWithVerify(c, store, hash, cacheType, attrs)
+	} else {
+		h.putDirect(c, store, hash, cacheType, contentLength, attrs)
+	}
+}
+
+// putDirect streams the request body to storage without hash verification.
+// If Content-Length is known, streams directly. Otherwise spools to a temp file.
+func (h *BazelHandler) putDirect(c *gin.Context, store storage.Storage, hash, cacheType string, contentLength int64, attrs metric.MeasurementOption) {
+	if contentLength >= 0 {
+		// Content-Length known: stream directly to storage
+		limited := io.LimitReader(c.Request.Body, contentLength)
+		h.metrics.EntrySize.Record(c.Request.Context(), float64(contentLength), attrs)
+
+		if err := store.Put(c.Request.Context(), hash, limited, contentLength); err != nil {
+			h.logger.Error().Err(err).Str("hash", hash).Str("cache_type", cacheType).Msg("failed to store bazel cache entry")
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		c.Status(http.StatusOK)
+		return
+	}
+
+	// Chunked transfer: spool to temp file to determine size
+	size, reader, cleanup, err := h.spoolToTempFile(c.Request.Body)
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if err != nil {
+		h.logger.Error().Err(err).Str("hash", hash).Str("cache_type", cacheType).Msg("failed to read request body")
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	if size > h.maxEntrySize {
+		c.Status(http.StatusRequestEntityTooLarge)
+		return
+	}
+
+	h.metrics.EntrySize.Record(c.Request.Context(), float64(size), attrs)
+
+	if err := store.Put(c.Request.Context(), hash, reader, size); err != nil {
+		h.logger.Error().Err(err).Str("hash", hash).Str("cache_type", cacheType).Msg("failed to store bazel cache entry")
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	c.Status(http.StatusOK)
+}
+
+// putWithVerify spools the upload to a temp file while computing the SHA-256 hash,
+// then verifies the hash before storing.
+func (h *BazelHandler) putWithVerify(c *gin.Context, store storage.Storage, hash, cacheType string, attrs metric.MeasurementOption) {
+	f, err := os.CreateTemp("", "bazel-cas-*")
+	if err != nil {
+		h.logger.Error().Err(err).Msg("failed to create temp file for CAS verification")
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	defer os.Remove(f.Name())
+	defer f.Close()
+
+	hasher := sha256.New()
+	limited := io.LimitReader(c.Request.Body, h.maxEntrySize+1)
+	tee := io.TeeReader(limited, hasher)
+
+	written, err := io.Copy(f, tee)
 	if err != nil {
 		h.logger.Error().Err(err).Str("hash", hash).Str("cache_type", cacheType).Msg("failed to read request body")
 		c.Status(http.StatusInternalServerError)
 		return
 	}
 
-	if int64(len(data)) > h.maxEntrySize {
+	if written > h.maxEntrySize {
 		c.Status(http.StatusRequestEntityTooLarge)
 		return
 	}
 
-	// Verify content hash for CAS entries
-	if verifyHash {
-		computed := sha256.Sum256(data)
-		computedHex := hex.EncodeToString(computed[:])
-		if computedHex != hash {
-			h.metrics.HashMismatches.Add(c.Request.Context(), 1, attrs)
-			h.logger.Warn().
-				Str("expected", hash).
-				Str("computed", computedHex).
-				Msg("bazel CAS hash mismatch")
-			c.Status(http.StatusBadRequest)
-			return
-		}
+	computedHex := hex.EncodeToString(hasher.Sum(nil))
+	if computedHex != hash {
+		h.metrics.HashMismatches.Add(c.Request.Context(), 1, attrs)
+		h.logger.Warn().
+			Str("expected", hash).
+			Str("computed", computedHex).
+			Msg("bazel CAS hash mismatch")
+		c.Status(http.StatusBadRequest)
+		return
 	}
 
-	contentLength = int64(len(data))
-	h.metrics.EntrySize.Record(c.Request.Context(), float64(contentLength), attrs)
-
-	err = store.Put(c.Request.Context(), hash, bytes.NewReader(data), contentLength)
-	if err != nil {
-		h.logger.Error().Err(err).Str("hash", hash).Str("cache_type", cacheType).Msg("failed to store bazel cache entry")
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		h.logger.Error().Err(err).Msg("failed to seek temp file")
 		c.Status(http.StatusInternalServerError)
 		return
 	}
 
-	// Bazel expects 200 OK on successful PUT (not 201 Created like Gradle)
+	h.metrics.EntrySize.Record(c.Request.Context(), float64(written), attrs)
+
+	if err := store.Put(c.Request.Context(), hash, f, written); err != nil {
+		h.logger.Error().Err(err).Str("hash", hash).Str("cache_type", cacheType).Msg("failed to store bazel cache entry")
+		c.Status(http.StatusInternalServerError)
+		return
+	}
 	c.Status(http.StatusOK)
+}
+
+// spoolToTempFile copies from r (limited to maxEntrySize+1) into a temp file
+// and returns the written size, a reader seeked to start, and a cleanup function.
+func (h *BazelHandler) spoolToTempFile(r io.Reader) (int64, io.Reader, func(), error) {
+	f, err := os.CreateTemp("", "bazel-spool-*")
+	if err != nil {
+		return 0, nil, nil, fmt.Errorf("create temp file: %w", err)
+	}
+	cleanup := func() {
+		f.Close()
+		os.Remove(f.Name())
+	}
+
+	limited := io.LimitReader(r, h.maxEntrySize+1)
+	written, err := io.Copy(f, limited)
+	if err != nil {
+		return 0, nil, cleanup, fmt.Errorf("spool to temp file: %w", err)
+	}
+
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return 0, nil, cleanup, fmt.Errorf("seek temp file: %w", err)
+	}
+
+	return written, f, cleanup, nil
 }
