@@ -43,6 +43,13 @@ resources:
       memory: "2Gi"
       cpu: "1000m"
 
+# Cache settings (shared by Gradle and Bazel)
+cache:
+  # Maximum entry size in MB
+  maxEntrySizeMB: 100
+  # Verify SHA-256 hash of Bazel CAS blobs on PUT
+  verifyCASHash: true
+
 tls:
   # Enable TLS for the cache server
   enabled: false

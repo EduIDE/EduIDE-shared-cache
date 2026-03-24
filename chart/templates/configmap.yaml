@@ -23,7 +23,8 @@ data:
       addr: "{{ .Release.Name }}-redis:6379"
 
     cache:
-      max_entry_size_mb: 100
+      max_entry_size_mb: {{ .Values.cache.maxEntrySizeMB }}
+      verify_cas_hash: {{ .Values.cache.verifyCASHash }}
 
     auth:
       enabled: {{ .Values.auth.enabled }}

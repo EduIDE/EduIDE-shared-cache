@@ -10,6 +10,7 @@ storage:
 
 cache:
   max_entry_size_mb: 100
+  verify_cas_hash: true
 
 auth:
   enabled: true
