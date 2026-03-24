@@ -86,12 +86,33 @@ func (s *Server) setupRoutes() {
 		s.logger.Fatal().Err(err).Msg("Failed to initialize cache")
 	}
 
-	// Create cache group with optional auth
-	cacheGroup := s.router.Group("/cache")
+	// Gradle cache endpoints
+	gradleGroup := s.router.Group("/gradle")
+	gradleGroup.GET("/:key", s.cacheAuth(false), cacheHandler.Get)
+	gradleGroup.HEAD("/:key", s.cacheAuth(false), cacheHandler.Head)
+	gradleGroup.PUT("/:key", s.cacheAuth(true), cacheHandler.Put)
 
-	cacheGroup.GET("/:key", s.cacheAuth(false), cacheHandler.Get)
-	cacheGroup.HEAD("/:key", s.cacheAuth(false), cacheHandler.Head)
-	cacheGroup.PUT("/:key", s.cacheAuth(true), cacheHandler.Put)
+	// Bazel HTTP remote cache endpoints
+	nsStorage, ok := s.storage.(storage.NamespacedStorage)
+	if !ok {
+		s.logger.Fatal().Msg("Storage backend does not support namespaces, required for Bazel cache")
+	}
+
+	bazelHandler, err := handler.NewBazelHandler(
+		nsStorage,
+		s.cfg.MaxEntrySizeBytes(),
+		s.cfg.Cache.VerifyCASHash,
+		s.logger,
+	)
+	if err != nil {
+		s.logger.Fatal().Err(err).Msg("Failed to initialize Bazel cache handler")
+	}
+
+	bazelGroup := s.router.Group("/bazel")
+	bazelGroup.GET("/ac/:hash", s.cacheAuth(false), bazelHandler.GetAC)
+	bazelGroup.PUT("/ac/:hash", s.cacheAuth(true), bazelHandler.PutAC)
+	bazelGroup.GET("/cas/:hash", s.cacheAuth(false), bazelHandler.GetCAS)
+	bazelGroup.PUT("/cas/:hash", s.cacheAuth(true), bazelHandler.PutCAS)
 }
 
 func (s *Server) cacheAuth(requireWriter bool) gin.HandlerFunc {

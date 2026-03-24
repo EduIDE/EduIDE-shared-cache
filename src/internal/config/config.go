@@ -39,6 +39,7 @@ type StorageConfig struct {
 
 type CacheConfig struct {
 	MaxEntrySizeMB int64 `mapstructure:"max_entry_size_mb"`
+	VerifyCASHash  bool  `mapstructure:"verify_cas_hash"`
 }
 
 type AuthConfig struct {
@@ -82,6 +83,7 @@ func Load(configPath string) (*Config, error) {
 	v.SetDefault("storage.db", 0)
 
 	v.SetDefault("cache.max_entry_size_mb", 100)
+	v.SetDefault("cache.verify_cas_hash", true)
 
 	v.SetDefault("auth.enabled", true)
 
@@ -146,3 +148,4 @@ func (c *Config) Validate() error {
 func (c *Config) MaxEntrySizeBytes() int64 {
 	return c.Cache.MaxEntrySizeMB * 1024 * 1024
 }
+
