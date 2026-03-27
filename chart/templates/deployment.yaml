@@ -2,20 +2,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-cache-server
+  name: {{ .Chart.Name }}-server
   labels:
-    {{- include "theia-shared-cache.labels" . | nindent 4 }}
+    {{- include "eduide-shared-cache.labels" . | nindent 4 }}
     app.kubernetes.io/component: cache-server
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "theia-shared-cache.selectorLabels" . | nindent 6 }}
+      {{- include "eduide-shared-cache.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: cache-server
   template:
     metadata:
       labels:
-        {{- include "theia-shared-cache.selectorLabels" . | nindent 8 }}
+        {{- include "eduide-shared-cache.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: cache-server
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
@@ -29,15 +29,14 @@ spec:
             - -c
             - |
               echo "Waiting for Redis to be ready..."
-              until nc -z {{ .Release.Name }}-redis 6379; do
+              until nc -z {{ .Chart.Name }}-redis 6379; do
                 echo "Redis not ready, waiting..."
                 sleep 2
               done
               echo "Redis is ready!"
       containers:
         - name: cache-server
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.Version }}"
           ports:
             - name: http
               containerPort: 8080
@@ -46,25 +45,25 @@ spec:
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-redis-secret
+                  name: {{ .Chart.Name }}-redis-secret
                   key: redis-password
             {{- if .Values.auth.enabled }}
             - name: CACHE_READER_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-cache-reader
+                  name: {{ .Chart.Name }}-reader
                   key: password
             - name: CACHE_WRITER_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-cache-writer
+                  name: {{ .Chart.Name }}-writer
                   key: password
             {{- end }}
           args:
             - --config
             - /etc/gradle-cache/config.yaml
           resources:
-            {{- toYaml .Values.resources.cacheServer | nindent 12 }}
+            {{- toYaml .Values.resources | nindent 12 }}
           livenessProbe:
             httpGet:
               path: /ping
@@ -99,7 +98,7 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ .Release.Name }}-config
+            name: {{ .Chart.Name }}-config
         {{- if .Values.tls.enabled }}
         - name: tls-certs
           secret:

@@ -1,47 +1,25 @@
-# Gradle Build Cache Configuration
+# ============================================================
+# Cache Server
+# ============================================================
 
-# Enable/disable the entire cache deployment
 enabled: true
 
-# Docker image
 image:
-  repository: ghcr.io/ls1intum/theia-shared-cache/gradle-cache
-  tag: "main"
-  pullPolicy: IfNotPresent
+  repository: ghcr.io/eduide/eduide-shared-cache/gradle-cache
+  # Default is the Chart Version
+  tag: ""
 
 # Authentication credentials (role-based)
-# reader: read-only access (for Theia IDE / students)
+# reader: read-only access (for EduIDE / students)
 # writer: read-write access (for CI/CD, admin, cache pre-warming)
 auth:
   enabled: true
   reader:
     username: "reader"
-    # IMPORTANT: Change this password in production!
-    # optimaly from github envrionment secrets
     password: "changeme-reader"
   writer:
     username: "writer"
-    # IMPORTANT: Change this password in production!
-    # optimaly from github envrionment secrets
     password: "changeme-writer"
-
-# Resource limits
-resources:
-  cacheServer:
-    requests:
-      memory: "256Mi"
-      cpu: "100m"
-    limits:
-      memory: "1Gi"
-      cpu: "500m"
-
-  redis:
-    requests:
-      memory: "128Mi"
-      cpu: "100m"
-    limits:
-      memory: "2Gi"
-      cpu: "1000m"
 
 # Cache settings (shared by Gradle and Bazel)
 cache:
@@ -51,22 +29,65 @@ cache:
   verifyCASHash: true
 
 tls:
-  # Enable TLS for the cache server
   enabled: false
-  # TLS secret name (if TLS is enabled)
+  # Kubernetes secret name containing tls.crt and tls.key
   secretName: ""
 
-# Reposilite - Maven/Gradle dependency proxy
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "1Gi"
+    cpu: "500m"
+
+# ============================================================
+# Redis (internal storage backend)
+# ============================================================
+
+redis:
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+# ============================================================
+# Monitoring
+# ============================================================
+
+monitoring:
+  # Create ServiceMonitor resources for Prometheus discovery.
+  # Requires the Prometheus Operator to be installed in the cluster.
+  enabled: true
+
+# ============================================================
+# Reposilite (Maven/Gradle dependency proxy)
+# ============================================================
+
 reposilite:
   enabled: true
 
-  # Persistence for cached artifacts (stored on Ceph)
+  # Admin access token for Reposilite management
+  adminToken: "changeme"
+
+  # Prometheus credentials are auto-generated on first install and stored in:
+  #   eduide-shared-cache-reposilite-secrets  (keys: prometheusUsername, prometheusPassword)
+
+  # Maven/Gradle repositories to proxy and cache
+  proxyRepositories:
+    - "https://repo1.maven.org/maven2"
+    - "https://plugins.gradle.org/m2"
+
+  # Persistence for cached artifacts
   persistence:
     enabled: true
     size: 20Gi
     storageClass: "csi-rbd-sc"
 
-  # Resource limits (Reposilite is lightweight - ~20-30MB RAM)
+  # Resource limits
   resources:
     requests:
       memory: "128Mi"
@@ -75,18 +96,30 @@ reposilite:
       memory: "256Mi"
       cpu: "500m"
 
-  # JVM and Reposilite startup settings
+  # ------------------------------------------------------------
+  # Internal: subchart wiring — not intended for user modification
+  # ------------------------------------------------------------
   env:
     - name: JAVA_OPTS
       value: "-Xmx128M"
+    - name: REPOSILITE_ADMIN_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: eduide-shared-cache-reposilite-secrets
+          key: adminToken
     - name: REPOSILITE_OPTS
-      value: "--token admin:changeme --shared-configuration=/etc/reposilite/configuration.shared.json"
+      value: "--token $(REPOSILITE_ADMIN_TOKEN) --shared-configuration=/etc/reposilite/configuration.shared.json"
     - name: REPOSILITE_PROMETHEUS_USER
-      value: "prometheus"
+      valueFrom:
+        secretKeyRef:
+          name: eduide-shared-cache-reposilite-secrets
+          key: prometheusUsername
     - name: REPOSILITE_PROMETHEUS_PASSWORD
-      value: "prometheus"
+      valueFrom:
+        secretKeyRef:
+          name: eduide-shared-cache-reposilite-secrets
+          key: prometheusPassword
 
-    # Mount shared configuration + plugins into Reposilite pod
   deployment:
     initContainers:
       - name: download-prometheus-plugin

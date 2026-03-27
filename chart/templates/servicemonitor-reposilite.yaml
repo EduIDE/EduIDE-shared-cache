@@ -1,0 +1,27 @@
+{{- if and .Values.reposilite.enabled .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Chart.Name }}-reposilite
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "eduide-shared-cache.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: reposilite
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      basicAuth:
+        username:
+          name: {{ .Chart.Name }}-reposilite-secrets
+          key: prometheusUsername
+        password:
+          name: {{ .Chart.Name }}-reposilite-secrets
+          key: prometheusPassword
+{{- end }}

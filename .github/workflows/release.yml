@@ -41,12 +41,12 @@ jobs:
       - name: Package and push to OCI
         run: |
           helm package ./chart
-          helm push theia-shared-cache-${{ steps.chart.outputs.version }}.tgz oci://ghcr.io/${{ env.REGISTRY_OWNER }}/charts
+          helm push eduide-shared-cache-${{ steps.chart.outputs.version }}.tgz oci://ghcr.io/${{ env.REGISTRY_OWNER }}/charts
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: theia-shared-cache-${{ steps.chart.outputs.version }}
-          name: theia-shared-cache ${{ steps.chart.outputs.version }}
+          tag_name: eduide-shared-cache-${{ steps.chart.outputs.version }}
+          name: eduide-shared-cache ${{ steps.chart.outputs.version }}
           generate_release_notes: true
 

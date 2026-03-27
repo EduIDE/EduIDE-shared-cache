@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-cache
+  name: {{ .Chart.Name }}
   labels:
-    {{- include "theia-shared-cache.labels" . | nindent 4 }}
+    {{- include "eduide-shared-cache.labels" . | nindent 4 }}
     app.kubernetes.io/component: cache-server
 spec:
   type: ClusterIP
@@ -14,6 +14,6 @@ spec:
       targetPort: http
       protocol: TCP
   selector:
-    {{- include "theia-shared-cache.selectorLabels" . | nindent 4 }}
+    {{- include "eduide-shared-cache.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: cache-server
 {{- end }}
