@@ -1,0 +1,23 @@
+{{- if and .Values.enabled .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Chart.Name }}-cache
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "eduide-shared-cache.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: cache-server
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: true
+{{- end }}

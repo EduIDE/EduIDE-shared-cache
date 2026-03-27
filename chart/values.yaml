@@ -55,6 +55,15 @@ redis:
       cpu: "1000m"
 
 # ============================================================
+# Monitoring
+# ============================================================
+
+monitoring:
+  # Create ServiceMonitor resources for Prometheus discovery.
+  # Requires the Prometheus Operator to be installed in the cluster.
+  enabled: true
+
+# ============================================================
 # Reposilite (Maven/Gradle dependency proxy)
 # ============================================================
 
@@ -64,12 +73,8 @@ reposilite:
   # Admin access token for Reposilite management
   adminToken: "changeme"
 
-  # Prometheus metrics endpoint credentials
-  # These are stored in a Kubernetes Secret for use in ServiceMonitors:
+  # Prometheus credentials are auto-generated on first install and stored in:
   #   eduide-shared-cache-reposilite-secrets  (keys: prometheusUsername, prometheusPassword)
-  prometheus:
-    username: "prometheus"
-    password: "changeme-prometheus"
 
   # Maven/Gradle repositories to proxy and cache
   proxyRepositories:
