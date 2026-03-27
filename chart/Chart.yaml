@@ -1,14 +1,11 @@
 apiVersion: v2
-name: theia-shared-cache
-description: A Gradle Build Cache server with Redis backend for Theia IDE deployments in Kubernetes
+name: eduide-shared-cache
+description: A Gradle Build Cache server with Redis backend for EduIDE deployments in Kubernetes
 
 type: application
 
-# Chart version - bump for breaking changes
-version: 0.4.0
-
-# Application version - matches the cache server version
-appVersion: "0.1.0"
+# Bump this version on every release — also used as the Docker image tag
+version: 0.5.0
 
 dependencies:
   - name: reposilite

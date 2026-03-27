@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-config
+  name: {{ .Chart.Name }}-config
   labels:
-    {{- include "theia-shared-cache.labels" . | nindent 4 }}
+    {{- include "eduide-shared-cache.labels" . | nindent 4 }}
     app.kubernetes.io/component: cache-server
 data:
   config.yaml: |
@@ -20,7 +20,7 @@ data:
       {{- end}}
 
     storage:
-      addr: "{{ .Release.Name }}-redis:6379"
+      addr: "{{ .Chart.Name }}-redis:6379"
 
     cache:
       max_entry_size_mb: {{ .Values.cache.maxEntrySizeMB }}

@@ -4,7 +4,7 @@ kind: ConfigMap
 metadata:
   name: reposilite-shared-config
   labels:
-    {{- include "theia-shared-cache.labels" . | nindent 4 }}
+    {{- include "eduide-shared-cache.labels" . | nindent 4 }}
     app.kubernetes.io/component: dependency-cache
 data:
   configuration.shared.json: |
@@ -17,18 +17,15 @@ data:
             "redeployment": false,
             "preserveSnapshots": false,
             "proxied": [
+              {{- range $i, $url := .Values.reposilite.proxyRepositories }}
+              {{- if $i }},{{ end }}
               {
-                "reference": "https://repo1.maven.org/maven2",
-                "store": true,
-                "allowedGroups": [],
-                "allowedExtensions": [".jar", ".war", ".xml", ".pom", ".module", ".asc", ".md5", ".sha1", ".sha256", ".sha512"]
-              },
-              {
-                "reference": "https://plugins.gradle.org/m2",
+                "reference": "{{ $url }}",
                 "store": true,
                 "allowedGroups": [],
                 "allowedExtensions": [".jar", ".war", ".xml", ".pom", ".module", ".asc", ".md5", ".sha1", ".sha256", ".sha512"]
               }
+              {{- end }}
             ]
           }
         ]

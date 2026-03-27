@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-redis
+  name: {{ .Chart.Name }}-redis
   labels:
-    {{- include "theia-shared-cache.labels" . | nindent 4 }}
+    {{- include "eduide-shared-cache.labels" . | nindent 4 }}
     app.kubernetes.io/component: storage
 spec:
   type: ClusterIP
@@ -18,6 +18,6 @@ spec:
       targetPort: metrics
       protocol: TCP
   selector:
-    {{- include "theia-shared-cache.selectorLabels" . | nindent 4 }}
+    {{- include "eduide-shared-cache.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: storage
 {{- end }}

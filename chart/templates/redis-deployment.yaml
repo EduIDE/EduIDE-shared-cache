@@ -2,20 +2,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-redis
+  name: {{ .Chart.Name }}-redis
   labels:
-    {{- include "theia-shared-cache.labels" . | nindent 4 }}
+    {{- include "eduide-shared-cache.labels" . | nindent 4 }}
     app.kubernetes.io/component: storage
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "theia-shared-cache.selectorLabels" . | nindent 6 }}
+      {{- include "eduide-shared-cache.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: storage
   template:
     metadata:
       labels:
-        {{- include "theia-shared-cache.selectorLabels" . | nindent 8 }}
+        {{- include "eduide-shared-cache.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: storage
     spec:
       containers:
@@ -37,10 +37,10 @@ spec:
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-redis-secret
+                  name: {{ .Chart.Name }}-redis-secret
                   key: redis-password
           resources:
-            {{- toYaml .Values.resources.redis | nindent 12 }}
+            {{- toYaml .Values.redis.resources | nindent 12 }}
           livenessProbe:
             exec:
               command:
@@ -72,7 +72,7 @@ spec:
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-redis-secret
+                  name: {{ .Chart.Name }}-redis-secret
                   key: redis-password
           resources:
             requests:
