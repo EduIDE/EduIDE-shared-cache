@@ -1,4 +1,4 @@
-# theia-shared-cache Helm Chart
+# eduide-shared-cache Helm Chart
 
 Helm chart to deploy a Gradle Build Cache server with Redis backend for Kubernetes.
 
@@ -63,7 +63,7 @@ helm install gradle-cache ./chart \
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `enabled` | Enable/disable the entire deployment | `true` |
-| `image.repository` | Cache server image repository | `ghcr.io/ls1intum/theia-shared-cache/gradle-cache` |
+| `image.repository` | Cache server image repository | `ghcr.io/ls1intum/eduide-shared-cache/gradle-cache` |
 | `image.tag` | Cache server image tag | `main` |
 | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
 | `auth.enabled` | Enable authentication | `true` |

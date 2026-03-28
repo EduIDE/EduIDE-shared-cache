@@ -69,6 +69,7 @@ monitoring:
 
 reposilite:
   enabled: true
+  fullnameOverride: "eduide-shared-cache-reposilite"
 
   # Admin access token for Reposilite management
   adminToken: "changeme"

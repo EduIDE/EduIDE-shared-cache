@@ -1,0 +1,20 @@
+{{- if and .Values.enabled .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Chart.Name }}-redis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "eduide-shared-cache.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: storage
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+{{- end }}

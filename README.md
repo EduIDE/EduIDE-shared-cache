@@ -68,8 +68,8 @@ This project provides a lightweight, self-hosted Gradle Build Cache server that 
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/kevingruber/theia-shared-cache.git
-cd theia-shared-cache
+git clone https://github.com/eduide/eduide-shared-cache.git
+cd eduide-shared-cache
 ```
 
 2. Deploy using Helm:
@@ -159,7 +159,7 @@ Key configuration options in `chart/values.yaml`:
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `enabled` | Enable/disable the entire deployment | `true` |
-| `image.repository` | Cache server image | `ghcr.io/ls1intum/theia-shared-cache/gradle-cache` |
+| `image.repository` | Cache server image | `ghcr.io/eduide/eduide-shared-cache/gradle-cache` |
 | `image.tag` | Cache server image tag | `main` |
 | `auth.enabled` | Enable authentication | `true` |
 | `auth.username` | Cache username | `gradle` |

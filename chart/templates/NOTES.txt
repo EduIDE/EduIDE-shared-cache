@@ -49,9 +49,9 @@ No resources have been deployed.
    Maven repository URL (for Gradle):
    http://{{ .Release.Name }}-reposilite:8080/releases
 
-6. Theia Pod Configuration:
+6. EduIDE Pod Configuration:
 
-   Set these environment variables in your Theia pods:
+   Set these environment variables in your EduIDE pods:
 
    GRADLE_CACHE_URL=http://{{ .Release.Name }}-cache:8080/cache/
    GRADLE_REPO_URL=http://{{ .Release.Name }}-reposilite:8080/releases
