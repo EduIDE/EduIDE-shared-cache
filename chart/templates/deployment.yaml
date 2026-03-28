@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Chart.Name }}-server
+  name: {{ .Chart.Name }}-cache-server
   labels:
     {{- include "eduide-shared-cache.labels" . | nindent 4 }}
     app.kubernetes.io/component: cache-server
@@ -51,12 +51,12 @@ spec:
             - name: CACHE_READER_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Chart.Name }}-reader
+                  name: {{ .Chart.Name }}-cache-reader
                   key: password
             - name: CACHE_WRITER_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Chart.Name }}-writer
+                  name: {{ .Chart.Name }}-cache-writer
                   key: password
             {{- end }}
           args:
