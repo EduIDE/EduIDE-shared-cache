@@ -33,6 +33,49 @@ tls:
   # Kubernetes secret name containing tls.crt and tls.key
   secretName: ""
 
+# ============================================================
+# Gateway API (HTTPRoutes only)
+# ============================================================
+#
+# This chart does NOT create a Gateway. It expects one to already exist
+# (e.g. the shared `theia-shared-gateway` in the `gateway-system` namespace)
+# with listeners configured for the hostnames below.
+#
+# Before installing with gateway.enabled=true, the cluster operator must:
+#   1. Add a listener per hostname on the shared Gateway, each with a TLS cert.
+#   2. Point DNS for those hostnames at the shared Gateway's load balancer IP.
+
+gateway:
+  # -- Render HTTPRoute resources. Disable to skip all Gateway API wiring.
+  enabled: false
+
+  # -- Environment base host. Hostnames default to:
+  #   cache.<baseHost>  and  repo.<baseHost>
+  # e.g. baseHost: test2.theia-test.artemis.cit.tum.de
+  baseHost: ""
+
+  # -- parentRefs for the HTTPRoutes. Each route attaches to one listener
+  # on the shared Gateway via `sectionName`. The listener's hostname on
+  # the Gateway must match the route's effective hostname.
+  # Example:
+  #   cache:
+  #     - name: theia-shared-gateway
+  #       namespace: gateway-system
+  #       sectionName: test2-cache
+  #   repo:
+  #     - name: theia-shared-gateway
+  #       namespace: gateway-system
+  #       sectionName: test2-repo
+  parentRefs:
+    cache: []
+    repo: []
+
+  # -- Optional explicit hostname overrides. Leave empty to derive from baseHost.
+  cache:
+    hostname: ""
+  repo:
+    hostname: ""
+
 resources:
   requests:
     memory: "256Mi"
@@ -69,6 +112,10 @@ monitoring:
 
 reposilite:
   enabled: true
+
+  # Override the full name of the Reposilite release (controls the service name).
+  # The HTTPRoute backend ref uses this same value.
+  fullnameOverride: "eduide-shared-cache-reposilite"
 
   # Admin access token for Reposilite management
   adminToken: "changeme"
