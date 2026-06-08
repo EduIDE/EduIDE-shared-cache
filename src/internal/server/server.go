@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/kevingruber/gradle-cache/internal/analysis"
 	"github.com/kevingruber/gradle-cache/internal/config"
 	"github.com/kevingruber/gradle-cache/internal/handler"
 	"github.com/kevingruber/gradle-cache/internal/middleware"
@@ -75,15 +76,26 @@ func (s *Server) setupRoutes() {
 		s.router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	}
 
-	// Cache endpoints
+	// Build an analyzer when static analysis is enabled; nil disables it.
+	var analyzer *analysis.Analyzer
+	if s.cfg.StaticAnalysis.Enabled {
+		analyzer = analysis.New(s.cfg.StaticAnalysis)
+		s.logger.Info().
+			Bool("check_network", s.cfg.StaticAnalysis.CheckNetwork).
+			Bool("check_exec", s.cfg.StaticAnalysis.CheckExec).
+			Bool("check_reflection", s.cfg.StaticAnalysis.CheckReflection).
+			Bool("check_filesystem", s.cfg.StaticAnalysis.CheckFilesystem).
+			Msg("static analysis enabled")
+	}
+
 	cacheHandler, err := handler.NewCacheHandler(
 		s.storage,
 		s.cfg.MaxEntrySizeBytes(),
 		s.logger,
+		analyzer,
 	)
-
 	if err != nil {
-		s.logger.Fatal().Err(err).Msg("Failed to initialize cache")
+		s.logger.Fatal().Err(err).Msg("Failed to initialize cache handler")
 	}
 
 	// Gradle cache endpoints

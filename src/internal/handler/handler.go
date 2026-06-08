@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"io"
+
+	"github.com/kevingruber/gradle-cache/internal/analysis"
 	"github.com/kevingruber/gradle-cache/internal/storage"
 	"github.com/rs/zerolog"
-	"io"
 )
 
 // CacheHandler handles Gradle build cache HTTP requests.
@@ -12,10 +14,12 @@ type CacheHandler struct {
 	maxEntrySize int64
 	logger       zerolog.Logger
 	metrics      *Metrics
+	analyzer     *analysis.Analyzer // nil when static analysis is disabled
 }
 
 // NewCacheHandler creates a new cache handler.
-func NewCacheHandler(store storage.Storage, maxEntrySize int64, logger zerolog.Logger) (*CacheHandler, error) {
+// Pass a nil analyzer to disable static analysis.
+func NewCacheHandler(store storage.Storage, maxEntrySize int64, logger zerolog.Logger, analyzer *analysis.Analyzer) (*CacheHandler, error) {
 	metrics, err := NewMetrics()
 	if err != nil {
 		return nil, err
@@ -26,6 +30,7 @@ func NewCacheHandler(store storage.Storage, maxEntrySize int64, logger zerolog.L
 		maxEntrySize: maxEntrySize,
 		logger:       logger,
 		metrics:      metrics,
+		analyzer:     analyzer,
 	}, nil
 }
 
