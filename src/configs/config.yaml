@@ -25,3 +25,10 @@ metrics:
 logging:
   level: "info"
   format: "json"
+
+static_analysis:
+  enabled: false
+  check_network: true
+  check_exec: true
+  check_reflection: false
+  check_filesystem: false
