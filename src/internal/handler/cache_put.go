@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -39,6 +40,12 @@ func (h *CacheHandler) Put(c *gin.Context) {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
+
+	h.logger.Debug().
+		Str("key", key).
+		Int("size", len(data)).
+		Str("magic", fmt.Sprintf("%x", data[:min(4, len(data))])).
+		Msg("artifact received")
 
 	if int64(len(data)) > h.maxEntrySize {
 		c.Status(http.StatusRequestEntityTooLarge)
