@@ -28,7 +28,7 @@ logging:
 
 static_analysis:
   enabled: false
-  check_network: true
-  check_exec: true
+  check_network: false
+  check_exec: false
   check_reflection: false
   check_filesystem: false
