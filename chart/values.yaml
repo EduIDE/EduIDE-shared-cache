@@ -34,6 +34,16 @@ tls:
   secretName: ""
 
 # ============================================================
+# Static Code Analysis (Java JARs)
+# ============================================================
+staticAnalysis:
+  enabled: false
+  checkNetwork: false
+  checkExec: false
+  checkReflection: false
+  checkFilesystem: false
+
+# ============================================================
 # Gateway API (HTTPRoutes only)
 # ============================================================
 #

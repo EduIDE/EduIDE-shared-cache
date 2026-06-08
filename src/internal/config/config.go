@@ -9,13 +9,14 @@ import (
 )
 
 type Config struct {
-	Server  ServerConfig  `mapstructure:"server"`
-	Storage StorageConfig `mapstructure:"storage"`
-	Cache   CacheConfig   `mapstructure:"cache"`
-	Auth    AuthConfig    `mapstructure:"auth"`
-	Metrics MetricsConfig `mapstructure:"metrics"`
-	Logging LoggingConfig `mapstructure:"logging"`
-	Sentry  SentryConfig  `mapstructure:"sentry"`
+	Server         ServerConfig         `mapstructure:"server"`
+	Storage        StorageConfig        `mapstructure:"storage"`
+	Cache          CacheConfig          `mapstructure:"cache"`
+	Auth           AuthConfig           `mapstructure:"auth"`
+	Metrics        MetricsConfig        `mapstructure:"metrics"`
+	Logging        LoggingConfig        `mapstructure:"logging"`
+	Sentry         SentryConfig         `mapstructure:"sentry"`
+	StaticAnalysis StaticAnalysisConfig `mapstructure:"static_analysis"`
 }
 
 type ServerConfig struct {
@@ -67,6 +68,14 @@ type SentryConfig struct {
 	Enabled bool   `mapstructure:"enabled"`
 }
 
+type StaticAnalysisConfig struct {
+	Enabled         bool `mapstructure:"enabled"`
+	CheckNetwork    bool `mapstructure:"check_network"`
+	CheckExec       bool `mapstructure:"check_exec"`
+	CheckReflection bool `mapstructure:"check_reflection"`
+	CheckFilesystem bool `mapstructure:"check_filesystem"`
+}
+
 func Load(configPath string) (*Config, error) {
 	v := viper.New()
 
@@ -93,6 +102,12 @@ func Load(configPath string) (*Config, error) {
 
 	v.SetDefault("logging.level", "info")
 	v.SetDefault("logging.format", "json")
+
+	v.SetDefault("static_analysis.enabled", false)
+	v.SetDefault("static_analysis.check_network", false)
+	v.SetDefault("static_analysis.check_exec", false)
+	v.SetDefault("static_analysis.check_reflection", false)
+	v.SetDefault("static_analysis.check_filesystem", false)
 
 	// Read from config file if provided
 	if configPath != "" {
@@ -148,4 +163,3 @@ func (c *Config) Validate() error {
 func (c *Config) MaxEntrySizeBytes() int64 {
 	return c.Cache.MaxEntrySizeMB * 1024 * 1024
 }
-

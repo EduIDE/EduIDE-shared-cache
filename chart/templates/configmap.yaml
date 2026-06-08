@@ -38,4 +38,11 @@ data:
     logging:
       level: "info"
       format: "json"
+    
+    static_analysis:
+      enabled: {{ .Values.staticAnalysis.enabled }}
+      check_network: {{ .Values.staticAnalysis.checkNetwork }}
+      check_exec: {{ .Values.staticAnalysis.checkExec }}
+      check_reflection: {{ .Values.staticAnalysis.checkReflection }}
+      check_filesystem: {{ .Values.staticAnalysis.checkFilesystem }}
 {{- end }}
