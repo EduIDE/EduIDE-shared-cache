@@ -1,0 +1,20 @@
+# Renovate tells us about vulnerabilities we already have. This catches the
+# ones a PR is about to add: it diffs the PR's dependencies against main and
+# fails on a newly introduced advisory of high severity or above.
+#
+# The Go module lives in src/, which GitHub's dependency graph picks up on its
+# own - the action reads the graph, not the checkout.
+#
+# The grammar lives in EduIDE/.github so the repos cannot drift apart on it.
+
+name: Dependency Review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    uses: EduIDE/.github/.github/workflows/dependency-review.yml@v1
