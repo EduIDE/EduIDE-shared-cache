@@ -25,6 +25,9 @@ data:
     cache:
       max_entry_size_mb: {{ .Values.cache.maxEntrySizeMB }}
       verify_cas_hash: {{ .Values.cache.verifyCASHash }}
+      {{- if .Values.cache.namespace }}
+      namespace: {{ .Values.cache.namespace | quote }}
+      {{- end }}
 
     auth:
       enabled: {{ .Values.auth.enabled }}

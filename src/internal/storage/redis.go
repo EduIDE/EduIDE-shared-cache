@@ -78,8 +78,14 @@ func (s *RedisStorage) Ping(ctx context.Context) error {
 }
 
 func (s *RedisStorage) WithNamespace(namespace string) Storage {
+	// Compose with any existing namespace so callers can nest scopes
+	// (e.g. an exercise namespace with a per-cache "gradle"/"bazel:ac" scope).
+	ns := namespace
+	if s.namespace != "" {
+		ns = s.namespace + ":" + namespace
+	}
 	return &RedisStorage{
 		client:    s.client,
-		namespace: namespace,
+		namespace: ns,
 	}
 }

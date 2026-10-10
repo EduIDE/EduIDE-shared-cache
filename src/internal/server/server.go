@@ -88,8 +88,22 @@ func (s *Server) setupRoutes() {
 			Msg("static analysis enabled")
 	}
 
+	// All cache keys are namespaced by a server-trusted prefix so that a
+	// client can never address another deployment's keyspace. The optional
+	// cache.namespace isolates deployments that share one Redis; the "gradle"
+	// and "bazel:*" scopes keep the two cache protocols from colliding.
+	nsStorage, ok := s.storage.(storage.NamespacedStorage)
+	if !ok {
+		s.logger.Fatal().Msg("Storage backend does not support namespaces, required for cache isolation")
+	}
+
+	base := nsStorage
+	if ns := s.cfg.Cache.Namespace; ns != "" {
+		base = base.WithNamespace(ns).(storage.NamespacedStorage)
+	}
+
 	cacheHandler, err := handler.NewCacheHandler(
-		s.storage,
+		base.WithNamespace("gradle"),
 		s.cfg.MaxEntrySizeBytes(),
 		s.logger,
 		analyzer,
@@ -105,13 +119,8 @@ func (s *Server) setupRoutes() {
 	gradleGroup.PUT("/:key", s.cacheAuth(true), cacheHandler.Put)
 
 	// Bazel HTTP remote cache endpoints
-	nsStorage, ok := s.storage.(storage.NamespacedStorage)
-	if !ok {
-		s.logger.Fatal().Msg("Storage backend does not support namespaces, required for Bazel cache")
-	}
-
 	bazelHandler, err := handler.NewBazelHandler(
-		nsStorage,
+		base,
 		s.cfg.MaxEntrySizeBytes(),
 		s.cfg.Cache.VerifyCASHash,
 		s.logger,
@@ -128,7 +137,10 @@ func (s *Server) setupRoutes() {
 }
 
 func (s *Server) cacheAuth(requireWriter bool) gin.HandlerFunc {
-	if !s.cfg.Auth.Enabled {
+	// Writes must always be authenticated, even when auth.enabled is false.
+	// Disabling auth only opens read-only (GET/HEAD) anonymous access; it never
+	// permits anonymous PUTs, which could poison caches that other builds execute.
+	if !s.cfg.Auth.Enabled && !requireWriter {
 		return func(c *gin.Context) {
 			c.Next()
 		}
@@ -146,18 +158,17 @@ func (s *Server) handleHealth(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	if err := s.storage.Ping(ctx); err != nil {
+		// Log the detailed error internally, but never leak storage internals
+		// (addresses, driver error strings) to unauthenticated callers.
 		s.logger.Error().Err(err).Msg("health check failed: storage unreachable")
 		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"status":  "unhealthy",
-			"storage": "unreachable",
-			"error":   err.Error(),
+			"status": "unhealthy",
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":  "healthy",
-		"storage": "connected",
+		"status": "healthy",
 	})
 }
 
