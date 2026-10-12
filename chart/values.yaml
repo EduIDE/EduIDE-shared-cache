@@ -22,7 +22,8 @@ auth:
   writer:
     username: "writer"
     # REQUIRED: set a strong password, e.g. from a GitHub environment secret.
-    # Installation fails if left empty while auth is enabled.
+    # Writes always require authentication (even when auth.enabled is false), so
+    # installation fails if this is left empty.
     password: ""
 
 # Cache settings (shared by Gradle and Bazel)

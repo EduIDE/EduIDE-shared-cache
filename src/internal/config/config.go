@@ -148,6 +148,12 @@ func (c *Config) Validate() error {
 	if c.Storage.Addr == "" {
 		return fmt.Errorf("storage.addr is required")
 	}
+	// ":" is the Redis key separator. Allowing it in the configured namespace
+	// lets one deployment's namespace reconstruct another's key prefix on a
+	// shared Redis, so two deployments could collide. Reject it.
+	if strings.Contains(c.Cache.Namespace, ":") {
+		return fmt.Errorf("cache.namespace must not contain ':' (it is the key separator and would make namespaces ambiguous)")
+	}
 	if c.Auth.Enabled {
 		if c.Auth.Reader.Username == "" || c.Auth.Reader.Password == "" {
 			return fmt.Errorf("auth.reader.username and auth.reader.password are required when auth is enabled")

@@ -99,7 +99,14 @@ func (s *Server) setupRoutes() {
 
 	base := nsStorage
 	if ns := s.cfg.Cache.Namespace; ns != "" {
-		base = base.WithNamespace(ns).(storage.NamespacedStorage)
+		// WithNamespace only promises a Storage. Nested scoping (gradle/bazel on
+		// top of the deployment namespace) needs a NamespacedStorage, so verify
+		// the backend returns one instead of asserting and panicking.
+		nested, ok := base.WithNamespace(ns).(storage.NamespacedStorage)
+		if !ok {
+			s.logger.Fatal().Msg("Storage backend does not support nested namespaces, required for cache isolation")
+		}
+		base = nested
 	}
 
 	cacheHandler, err := handler.NewCacheHandler(

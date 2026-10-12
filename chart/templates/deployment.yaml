@@ -53,12 +53,14 @@ spec:
                 secretKeyRef:
                   name: {{ .Chart.Name }}-reader
                   key: password
+            {{- end }}
+            # Writes always require authentication, even when auth.enabled is
+            # false, so the writer password is always injected.
             - name: CACHE_WRITER_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Chart.Name }}-writer
                   key: password
-            {{- end }}
           args:
             - --config
             - /etc/gradle-cache/config.yaml
