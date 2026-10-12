@@ -41,6 +41,10 @@ type StorageConfig struct {
 type CacheConfig struct {
 	MaxEntrySizeMB int64 `mapstructure:"max_entry_size_mb"`
 	VerifyCASHash  bool  `mapstructure:"verify_cas_hash"`
+	// Namespace is a server-trusted prefix applied to every cache key.
+	// It isolates one deployment's keyspace from another when a single Redis
+	// instance is shared. Empty means no extra prefix.
+	Namespace string `mapstructure:"namespace"`
 }
 
 type AuthConfig struct {
@@ -93,6 +97,7 @@ func Load(configPath string) (*Config, error) {
 
 	v.SetDefault("cache.max_entry_size_mb", 100)
 	v.SetDefault("cache.verify_cas_hash", true)
+	v.SetDefault("cache.namespace", "")
 
 	v.SetDefault("auth.enabled", true)
 
@@ -127,6 +132,8 @@ func Load(configPath string) (*Config, error) {
 	v.BindEnv("auth.reader.password", "CACHE_READER_PASSWORD")
 	v.BindEnv("auth.writer.password", "CACHE_WRITER_PASSWORD")
 
+	v.BindEnv("cache.namespace", "CACHE_NAMESPACE")
+
 	v.BindEnv("sentry.dsn", "SENTRY_DSN")
 
 	var cfg Config
@@ -140,6 +147,12 @@ func Load(configPath string) (*Config, error) {
 func (c *Config) Validate() error {
 	if c.Storage.Addr == "" {
 		return fmt.Errorf("storage.addr is required")
+	}
+	// ":" is the Redis key separator. Allowing it in the configured namespace
+	// lets one deployment's namespace reconstruct another's key prefix on a
+	// shared Redis, so two deployments could collide. Reject it.
+	if strings.Contains(c.Cache.Namespace, ":") {
+		return fmt.Errorf("cache.namespace must not contain ':' (it is the key separator and would make namespaces ambiguous)")
 	}
 	if c.Auth.Enabled {
 		if c.Auth.Reader.Username == "" || c.Auth.Reader.Password == "" {
