@@ -1,3 +1,13 @@
+# Builds the cache server image for every PR and every push to main.
+#
+# This workflow never publishes a chart-version tag. The chart pins the image
+# tag to its own version (image.tag defaults to Chart.Version), so a push here
+# that wrote X.Y.Z would silently swap the image under an already published
+# chart. Only release.yml publishes X.Y.Z, once, together with the chart.
+#
+#   push to main  ->  latest, latest-<sha>
+#   pull request  ->  pr-<N>, pr-<N>-<sha>  (the PR preview chart pins pr-<N>)
+
 name: Build and Push Docker Image
 
 on:
@@ -14,59 +24,20 @@ on:
     paths:
       - 'src/**'
       - 'chart/**'
+      - '.github/workflows/docker-build.yml'
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/gradle-cache
+permissions:
+  contents: read
 
 jobs:
   build:
-    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Compute version tag
-        id: version
-        run: |
-          BASE=$(grep '^version:' chart/Chart.yaml | awk '{print $2}')
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "tag=${BASE}-pr.${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${BASE}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix=
-            type=raw,value=${{ steps.version.outputs.tag }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./src
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+    uses: EduIDE/.github/.github/workflows/build-and-push-docker-image.yml@v1
+    with:
+      image-name: eduide/eduide-shared-cache/gradle-cache
+      docker-context: ./src
+      docker-file: ./src/Dockerfile
+      free-disk-space: false
+    secrets: inherit

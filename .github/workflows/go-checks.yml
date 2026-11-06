@@ -1,0 +1,33 @@
+name: Go Checks
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - '.github/workflows/go-checks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  vet-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          # Same Go as the builder stage in src/Dockerfile.
+          go-version: '1.25'
+          cache-dependency-path: src/go.sum
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test ./...
