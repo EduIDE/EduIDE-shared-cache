@@ -25,14 +25,19 @@ data:
     cache:
       max_entry_size_mb: {{ .Values.cache.maxEntrySizeMB }}
       verify_cas_hash: {{ .Values.cache.verifyCASHash }}
+      {{- if .Values.cache.namespace }}
+      namespace: {{ .Values.cache.namespace | quote }}
+      {{- end }}
 
     auth:
       enabled: {{ .Values.auth.enabled }}
+      # Writes always require authentication, even when auth.enabled is false
+      # (anonymous reads only). The writer credentials are therefore always set.
+      writer:
+        username: {{ .Values.auth.writer.username | quote }}
       {{- if .Values.auth.enabled }}
       reader:
         username: {{ .Values.auth.reader.username | quote }}
-      writer:
-        username: {{ .Values.auth.writer.username | quote }}
       {{- end }}
 
     logging:

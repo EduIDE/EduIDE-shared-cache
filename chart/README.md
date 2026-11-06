@@ -66,9 +66,12 @@ helm install gradle-cache ./chart \
 | `image.repository` | Cache server image repository | `ghcr.io/ls1intum/theia-shared-cache/gradle-cache` |
 | `image.tag` | Cache server image tag | `main` |
 | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
-| `auth.enabled` | Enable authentication | `true` |
-| `auth.username` | Cache username | `gradle` |
-| `auth.password` | Cache password | `changeme` |
+| `auth.enabled` | Enable authentication (reads may be anonymous when `false`; writes always require the writer credential) | `true` |
+| `auth.reader.username` | Read-only role username | `reader` |
+| `auth.reader.password` | Read-only role password (required, set via secret) | `""` |
+| `auth.writer.username` | Read-write role username | `writer` |
+| `auth.writer.password` | Read-write role password (required, set via secret) | `""` |
+| `cache.namespace` | Server-trusted key prefix isolating this deployment's keyspace | `""` |
 | `resources.cacheServer.requests.memory` | Memory request | `256Mi` |
 | `resources.cacheServer.requests.cpu` | CPU request | `100m` |
 | `resources.cacheServer.limits.memory` | Memory limit | `1Gi` |
@@ -121,7 +124,7 @@ buildCache {
         url = uri("http://<release-name>-cache:8080/cache/")
         credentials {
             username = "writer"
-            password = "changeme-writer"
+            password = System.getenv("WRITER_PASSWORD")
         }
         isPush = true
     }
