@@ -18,13 +18,13 @@ on:
       - 'src/**'
       - 'chart/**'
       - '.github/workflows/docker-build.yml'
+  # Every PR that can get a preview chart needs its pr-<N> image, whatever its base branch.
   pull_request:
-    branches:
-      - main
     paths:
       - 'src/**'
       - 'chart/**'
       - '.github/workflows/docker-build.yml'
+      - '.github/workflows/chart-preview.yml'
 
 permissions:
   contents: read

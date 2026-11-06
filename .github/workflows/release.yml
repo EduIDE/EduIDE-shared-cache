@@ -18,6 +18,12 @@ on:
 permissions:
   contents: read
 
+# Two runs for the same version could both pass the check before either
+# publishes. Queue them, so the second one sees the first one's chart.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   check:
     runs-on: ubuntu-latest

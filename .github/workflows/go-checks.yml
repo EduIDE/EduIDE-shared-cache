@@ -18,6 +18,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # go test runs PR code; keep the token out of its reach.
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v5
