@@ -1,52 +1,114 @@
-name: Release Charts
+# Manual release. The only way this repository releases.
+#
+#   gh workflow run release.yml -R EduIDE/EduIDE-shared-cache -f version=0.6.0
+#
+# Publishes the image ghcr.io/eduide/eduide-shared-cache/gradle-cache:X.Y.Z and
+# the chart oci://ghcr.io/eduide/charts/eduide-shared-cache:X.Y.Z. The chart
+# defaults image.tag to its version, so it pins its own image.
+# See .claude/skills/release/SKILL.md for the whole flow.
+#
+# A Release created with GITHUB_TOKEN starts no other workflow, so the image
+# build is called from here.
+
+name: Release
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'chart/**'
-      - '.github/workflows/release.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version without the leading v, e.g. 0.6.0, or 0.6.0-rc.1 for a prerelease"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
     permissions:
       contents: write
+    uses: EduIDE/.github/.github/workflows/release.yml@main
+    with:
+      version: ${{ inputs.version }}
+      tag_prefix: "eduide-shared-cache-"
+      version_check: |
+        got=$(yq -r .version chart/Chart.yaml)
+        if [[ "$got" != "$VERSION" ]]; then
+          echo "::error file=chart/Chart.yaml::version is '$got', expected '$VERSION'. Bump it in the release pull request first."
+          exit 1
+        fi
+
+  images:
+    needs: release
+    permissions:
+      contents: read
       packages: write
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      image_tag: ${{ inputs.version }}
+    secrets: inherit
+
+  publish:
+    needs: [release, images]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ inputs.version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-
-      - name: Update chart dependencies
-        run: helm dependency update ./chart
-
-      - name: Set registry owner
-        run: echo "REGISTRY_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - uses: azure/setup-helm@v4
 
       - name: Login to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GHCR_TOKEN" | helm registry login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
-      - name: Extract chart version
-        id: chart
+      # helm push overwrites, so refuse a version that is already published.
+      - name: Package and push the chart
         run: |
-          VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}')
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          ref=oci://ghcr.io/eduide/charts
+          if helm show chart "$ref/eduide-shared-cache" --version "$VERSION" >/dev/null 2>&1; then
+            echo "::error::Chart ${VERSION} is already published. Pick the next version."
+            exit 1
+          fi
+          helm dependency update chart
+          # --version stamps a release candidate; for a stable release it equals
+          # what Chart.yaml already says. The image tag follows the chart version.
+          helm package chart --version "$VERSION"
+          helm push "eduide-shared-cache-${VERSION}.tgz" "$ref"
 
-      - name: Package and push to OCI
+  verify:
+    needs: [release, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      VERSION: ${{ inputs.version }}
+      TAG: ${{ needs.release.outputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: azure/setup-helm@v4
+
+      - name: Image and chart exist
         run: |
-          helm package ./chart
-          helm push eduide-shared-cache-${{ steps.chart.outputs.version }}.tgz oci://ghcr.io/${{ env.REGISTRY_OWNER }}/charts
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: eduide-shared-cache-${{ steps.chart.outputs.version }}
-          name: eduide-shared-cache ${{ steps.chart.outputs.version }}
-          generate_release_notes: true
-
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          arches=$(docker buildx imagetools inspect --raw "ghcr.io/eduide/eduide-shared-cache/gradle-cache:${VERSION}" | jq -r '[.manifests[].platform.architecture] | sort | join(",")')
+          [[ "$arches" == *amd64* && "$arches" == *arm64* ]] || { echo "::error::image has ${arches:-no platforms}, expected amd64 and arm64"; exit 1; }
+          echo "$GH_TOKEN" | helm registry login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          helm show chart "oci://ghcr.io/eduide/charts/eduide-shared-cache" --version "$VERSION" | grep -x "version: ${VERSION}"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url
+          {
+            echo "## Released ${TAG}"
+            echo
+            echo "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
+          } >> "$GITHUB_STEP_SUMMARY"
