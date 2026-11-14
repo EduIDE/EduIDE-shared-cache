@@ -111,7 +111,6 @@ jobs:
           [[ "$arches" == *amd64* && "$arches" == *arm64* ]] || { echo "::error::image has ${arches:-no platforms}, expected amd64 and arm64"; exit 1; }
           echo "$GH_TOKEN" | helm registry login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           helm show chart "oci://ghcr.io/eduide/charts/eduide-shared-cache" --version "$VERSION" | grep -x "version: ${VERSION}"
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url
           {
             echo "## Released ${TAG}"
             echo
