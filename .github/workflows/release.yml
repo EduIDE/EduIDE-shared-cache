@@ -75,8 +75,13 @@ jobs:
         run: |
           set -euo pipefail
           ref=oci://ghcr.io/eduide/charts
-          if helm show chart "$ref/eduide-shared-cache" --version "$VERSION" >/dev/null 2>&1; then
+          if out=$(helm show chart "$ref/eduide-shared-cache" --version "$VERSION" 2>&1); then
             echo "::error::Chart ${VERSION} is already published. Pick the next version."
+            exit 1
+          fi
+          # Only "not found" proves the version is free; any other error could hide a published chart.
+          if ! grep -qi 'not found' <<<"$out"; then
+            echo "::error::could not check chart ${VERSION}: ${out}"
             exit 1
           fi
           helm dependency update chart
@@ -112,3 +117,13 @@ jobs:
             echo
             echo "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Last: publishing the draft creates the tag. Until here a failed job leaves
+  # a draft and no tag.
+  publish-release:
+    needs: [release, verify]
+    permissions:
+      contents: write
+    uses: EduIDE/.github/.github/workflows/release-publish.yml@main
+    with:
+      tag: ${{ needs.release.outputs.tag }}
