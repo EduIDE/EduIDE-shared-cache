@@ -253,6 +253,27 @@ cd src
 go test ./...
 ```
 
+CI runs `go vet ./...` and `go test ./...` on every PR that touches `src/`.
+
+### Images and Releases
+
+The version source is `version` in `chart/Chart.yaml`.
+The chart pins the cache server image to the same version, because `image.tag` defaults to the chart version.
+
+All images are multi-arch (amd64 and arm64) and live at `ghcr.io/eduide/eduide-shared-cache/gradle-cache`:
+
+| Trigger | Image tags | Workflow |
+|---------|------------|----------|
+| Push to `main` (`src/**`, `chart/**`) | `latest`, `latest-<sha>` | `docker-build.yml` |
+| Pull request (`src/**`, `chart/**`) | `pr-<N>`, `pr-<N>-<sha>` | `docker-build.yml` |
+| New chart version on `main` | `X.Y.Z`, `X.Y.Z-<sha>` | `release.yml` |
+
+Each PR that touches `chart/` also gets a preview chart `X.Y.Z-pr.<N>`, which pins the `pr-<N>` image.
+
+A published version is immutable.
+`release.yml` builds the `X.Y.Z` image and publishes chart `X.Y.Z` only if that chart version does not exist yet, and fails otherwise.
+So a code change reaches chart users only through a version bump in `chart/Chart.yaml`, and the image behind a published chart never changes.
+
 ### Project Structure
 
 ```
