@@ -40,6 +40,13 @@ jobs:
           sed -i 's/^  tag: ""$/  tag: "pr-${{ github.event.pull_request.number }}"/' chart/values.yaml
           grep -q '^  tag: "pr-${{ github.event.pull_request.number }}"$' chart/values.yaml
 
+      # The image tag defaults to the chart version, but PR images are tagged
+      # pr-<N>, never X.Y.Z-pr.<N>. Point the preview chart at it.
+      - name: Pin preview image tag
+        run: |
+          sed -i 's/^  tag: ""$/  tag: "pr-${{ github.event.pull_request.number }}"/' chart/values.yaml
+          grep -q '^  tag: "pr-${{ github.event.pull_request.number }}"$' chart/values.yaml
+
       - name: Set registry owner
         run: echo "REGISTRY_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
 

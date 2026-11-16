@@ -1,111 +1,128 @@
-# Publishes chart X.Y.Z and the image tag X.Y.Z it pins, once per version.
+# Manual release. The only way this repository releases.
 #
-# A published version is immutable: if chart X.Y.Z already exists, this
-# workflow fails instead of overwriting it. Bump `version` in chart/Chart.yaml
-# to release. Only this workflow writes the X.Y.Z image tag, and only after the
-# check passed, so an image a published chart points at never changes.
+#   gh workflow run release.yml -R EduIDE/EduIDE-shared-cache -f version=0.6.0
+#
+# Publishes the image ghcr.io/eduide/eduide-shared-cache/gradle-cache:X.Y.Z and
+# the chart oci://ghcr.io/eduide/charts/eduide-shared-cache:X.Y.Z. The chart
+# defaults image.tag to its version, so it pins its own image.
+# See .claude/skills/release/SKILL.md for the whole flow.
+#
+# A Release created with GITHUB_TOKEN starts no other workflow, so the image
+# build is called from here.
 
-name: Release Charts
+name: Release
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'chart/**'
-      - '.github/workflows/release.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version without the leading v, e.g. 0.6.0, or 0.6.0-rc.1 for a prerelease"
+        required: true
+        type: string
 
 permissions:
   contents: read
 
-# Two runs for the same version could both pass the check before either
-# publishes. Queue them, so the second one sees the first one's chart.
 concurrency:
-  group: ${{ github.workflow }}
+  group: release
   cancel-in-progress: false
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.chart.outputs.version }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  release:
+    permissions:
+      contents: write
+    uses: EduIDE/.github/.github/workflows/release.yml@main
+    with:
+      version: ${{ inputs.version }}
+      tag_prefix: "eduide-shared-cache-"
+      version_check: |
+        got=$(yq -r .version chart/Chart.yaml)
+        if [[ "$got" != "$VERSION" ]]; then
+          echo "::error file=chart/Chart.yaml::version is '$got', expected '$VERSION'. Bump it in the release pull request first."
+          exit 1
+        fi
 
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-
-      - name: Extract chart version
-        id: chart
-        run: |
-          VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}')
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Fail if the version is already published
-        env:
-          VERSION: ${{ steps.chart.outputs.version }}
-        run: |
-          OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
-          CHART="oci://ghcr.io/${OWNER}/charts/eduide-shared-cache"
-          if OUT=$(helm show chart "${CHART}" --version "${VERSION}" 2>&1); then
-            echo "::error::${CHART}:${VERSION} is already published. Bump version in chart/Chart.yaml."
-            exit 1
-          fi
-          # Anything other than "not found" (registry down, auth) must not be
-          # mistaken for a free version.
-          if ! grep -q 'not found' <<< "${OUT}"; then
-            echo "${OUT}"
-            echo "::error::Could not check whether ${CHART}:${VERSION} exists."
-            exit 1
-          fi
-
-  image:
-    needs: check
+  images:
+    needs: release
     permissions:
       contents: read
       packages: write
-    uses: EduIDE/.github/.github/workflows/build-and-push-docker-image.yml@v1
+    uses: ./.github/workflows/docker-build.yml
     with:
-      image-name: eduide/eduide-shared-cache/gradle-cache
-      docker-context: ./src
-      docker-file: ./src/Dockerfile
-      image-tag: ${{ needs.check.outputs.version }}
-      free-disk-space: false
+      image_tag: ${{ inputs.version }}
     secrets: inherit
 
-  release:
-    needs: [check, image]
-    permissions:
-      contents: write
-      packages: write
+  publish:
+    needs: [release, images]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ inputs.version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-
-      - name: Update chart dependencies
-        run: helm dependency update ./chart
-
-      - name: Set registry owner
-        run: echo "REGISTRY_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+      - uses: azure/setup-helm@v4
 
       - name: Login to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GHCR_TOKEN" | helm registry login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
-      - name: Package and push to OCI
+      # helm push overwrites, so refuse a version that is already published.
+      - name: Package and push the chart
         run: |
-          helm package ./chart
-          helm push eduide-shared-cache-${{ needs.check.outputs.version }}.tgz oci://ghcr.io/${{ env.REGISTRY_OWNER }}/charts
+          set -euo pipefail
+          ref=oci://ghcr.io/eduide/charts
+          if out=$(helm show chart "$ref/eduide-shared-cache" --version "$VERSION" 2>&1); then
+            echo "::error::Chart ${VERSION} is already published. Pick the next version."
+            exit 1
+          fi
+          # Only "not found" proves the version is free; any other error could hide a published chart.
+          if ! grep -qi 'not found' <<<"$out"; then
+            echo "::error::could not check chart ${VERSION}: ${out}"
+            exit 1
+          fi
+          helm dependency update chart
+          # --version stamps a release candidate; for a stable release it equals
+          # what Chart.yaml already says. The image tag follows the chart version.
+          helm package chart --version "$VERSION"
+          helm push "eduide-shared-cache-${VERSION}.tgz" "$ref"
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: eduide-shared-cache-${{ needs.check.outputs.version }}
-          name: eduide-shared-cache ${{ needs.check.outputs.version }}
-          generate_release_notes: true
+  verify:
+    needs: [release, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      VERSION: ${{ inputs.version }}
+      TAG: ${{ needs.release.outputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: azure/setup-helm@v4
+
+      - name: Image and chart exist
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          arches=$(docker buildx imagetools inspect --raw "ghcr.io/eduide/eduide-shared-cache/gradle-cache:${VERSION}" | jq -r '[.manifests[].platform.architecture] | sort | join(",")')
+          [[ "$arches" == *amd64* && "$arches" == *arm64* ]] || { echo "::error::image has ${arches:-no platforms}, expected amd64 and arm64"; exit 1; }
+          echo "$GH_TOKEN" | helm registry login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          helm show chart "oci://ghcr.io/eduide/charts/eduide-shared-cache" --version "$VERSION" | grep -x "version: ${VERSION}"
+          {
+            echo "## Released ${TAG}"
+            echo
+            echo "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Last: publishing the draft creates the tag. Until here a failed job leaves
+  # a draft and no tag.
+  publish-release:
+    needs: [release, verify]
+    permissions:
+      contents: write
+    uses: EduIDE/.github/.github/workflows/release-publish.yml@main
+    with:
+      tag: ${{ needs.release.outputs.tag }}

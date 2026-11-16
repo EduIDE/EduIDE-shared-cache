@@ -3,4 +3,5 @@
 .vscode/
 *.swp
 *.swo
-.claude
+.claude/*
+!.claude/skills/
