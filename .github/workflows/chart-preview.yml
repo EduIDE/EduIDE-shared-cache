@@ -6,6 +6,9 @@ on:
       - 'chart/**'
       - '.github/workflows/chart-preview.yml'
 
+permissions:
+  contents: read
+
 jobs:
   preview:
     permissions:
@@ -28,10 +31,17 @@ jobs:
           CURRENT_VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}')
           PREVIEW_VERSION="${CURRENT_VERSION}-pr.${{ github.event.pull_request.number }}"
           sed -i "s/^version: .*/version: ${PREVIEW_VERSION}/" chart/Chart.yaml
-          echo "PREVIEW_VERSION=${PREVIEW_VERSION}" >> $GITHUB_ENV
+          echo "PREVIEW_VERSION=${PREVIEW_VERSION}" >> "$GITHUB_ENV"
+
+      # The image tag defaults to the chart version, but docker-build.yml tags
+      # PR images pr-<N>, never X.Y.Z-pr.<N>. Point the preview chart at it.
+      - name: Pin preview image tag
+        run: |
+          sed -i 's/^  tag: ""$/  tag: "pr-${{ github.event.pull_request.number }}"/' chart/values.yaml
+          grep -q '^  tag: "pr-${{ github.event.pull_request.number }}"$' chart/values.yaml
 
       - name: Set registry owner
-        run: echo "REGISTRY_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+        run: echo "REGISTRY_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
 
       - name: Login to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -39,7 +49,7 @@ jobs:
       - name: Package and push
         run: |
           helm package ./chart
-          helm push eduide-shared-cache-${PREVIEW_VERSION}.tgz oci://ghcr.io/${{ env.REGISTRY_OWNER }}/charts
+          helm push "eduide-shared-cache-${PREVIEW_VERSION}.tgz" oci://ghcr.io/${{ env.REGISTRY_OWNER }}/charts
 
       - name: Comment install instructions
         uses: marocchino/sticky-pull-request-comment@v2
