@@ -16,10 +16,15 @@ auth:
   enabled: true
   reader:
     username: "reader"
-    password: "changeme-reader"
+    # REQUIRED: set a strong password, e.g. from a GitHub environment secret.
+    # Installation fails if left empty while auth is enabled.
+    password: ""
   writer:
     username: "writer"
-    password: "changeme-writer"
+    # REQUIRED: set a strong password, e.g. from a GitHub environment secret.
+    # Writes always require authentication (even when auth.enabled is false), so
+    # installation fails if this is left empty.
+    password: ""
 
 # Cache settings (shared by Gradle and Bazel)
 cache:
@@ -27,6 +32,9 @@ cache:
   maxEntrySizeMB: 100
   # Verify SHA-256 hash of Bazel CAS blobs on PUT
   verifyCASHash: true
+  # Server-trusted key prefix that isolates this deployment's keyspace from
+  # others sharing the same Redis. Leave empty for a single-tenant deployment.
+  namespace: ""
 
 tls:
   enabled: false

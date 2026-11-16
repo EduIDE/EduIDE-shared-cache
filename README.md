@@ -101,16 +101,16 @@ curl http://localhost:8080/ping
 Test cache operations:
 ```bash
 # Store a cache entry (requires writer role)
-curl -X PUT -u writer:changeme-writer \
+curl -X PUT -u writer:"$WRITER_PASSWORD" \
   -H "Content-Type: application/octet-stream" \
   -d "test data" \
   http://localhost:8080/cache/test-key
 
 # Retrieve the cache entry (reader or writer role)
-curl -u reader:changeme-reader http://localhost:8080/cache/test-key
+curl -u reader:"$READER_PASSWORD" http://localhost:8080/cache/test-key
 
 # Check if entry exists
-curl -I -u reader:changeme-reader http://localhost:8080/cache/test-key
+curl -I -u reader:"$READER_PASSWORD" http://localhost:8080/cache/test-key
 ```
 
 ## Configuration
@@ -126,7 +126,7 @@ buildCache {
         url = uri("http://<release-name>-cache:8080/cache/")
         credentials {
             username = "writer"
-            password = "changeme-writer"
+            password = System.getenv("WRITER_PASSWORD")
         }
         isPush = true  // set to false for read-only access
     }
@@ -140,7 +140,7 @@ buildCache {
         url = 'http://<release-name>-cache:8080/cache/'
         credentials {
             username = 'writer'
-            password = 'changeme-writer'
+            password = System.getenv('WRITER_PASSWORD')
         }
         push = true
     }
@@ -161,9 +161,12 @@ Key configuration options in `chart/values.yaml`:
 | `enabled` | Enable/disable the entire deployment | `true` |
 | `image.repository` | Cache server image | `ghcr.io/ls1intum/theia-shared-cache/gradle-cache` |
 | `image.tag` | Cache server image tag | `main` |
-| `auth.enabled` | Enable authentication | `true` |
-| `auth.username` | Cache username | `gradle` |
-| `auth.password` | Cache password | `changeme` |
+| `auth.enabled` | Enable authentication (reads may be anonymous when `false`; writes always require the writer credential) | `true` |
+| `auth.reader.username` | Read-only role username | `reader` |
+| `auth.reader.password` | Read-only role password (required, set via secret) | `""` |
+| `auth.writer.username` | Read-write role username | `writer` |
+| `auth.writer.password` | Read-write role password (required, set via secret) | `""` |
+| `cache.namespace` | Server-trusted key prefix isolating this deployment's keyspace | `""` |
 | `resources.cacheServer` | Cache server resource limits | See values.yaml |
 | `resources.redis` | Redis resource limits | See values.yaml |
 | `tls.enabled` | Enable TLS/HTTPS | `false` |
