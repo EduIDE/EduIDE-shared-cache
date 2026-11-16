@@ -13,7 +13,7 @@ A release is two steps with a human in between:
    `version`), which validates, builds, tags, creates the GitHub Release from
    the CHANGELOG section and publishes.
 
-Nothing releases on push to `main`. Tags look like `eduide-shared-cache-X.Y.Z`;
+Nothing releases on push to `main`. Tags look like `vX.Y.Z` (until 0.5.3: `eduide-shared-cache-X.Y.Z`);
 images, charts and vsix files carry `X.Y.Z` without the prefix.
 
 ## Reference for this repository
@@ -30,7 +30,7 @@ What a release publishes:
 |---|---|---|
 | Image | `ghcr.io/eduide/eduide-shared-cache/gradle-cache:X.Y.Z` (amd64 and arm64) | `docker buildx imagetools inspect ghcr.io/eduide/eduide-shared-cache/gradle-cache:X.Y.Z` |
 | Chart | `oci://ghcr.io/eduide/charts/eduide-shared-cache:X.Y.Z` | `helm show chart oci://ghcr.io/eduide/charts/eduide-shared-cache --version X.Y.Z` |
-| GitHub Release | `eduide-shared-cache-X.Y.Z` with the CHANGELOG section | `gh release view eduide-shared-cache-X.Y.Z -R EduIDE/EduIDE-shared-cache` |
+| GitHub Release | `vX.Y.Z` with the CHANGELOG section | `gh release view vX.Y.Z -R EduIDE/EduIDE-shared-cache` |
 
 EduIDE dependencies this repository pins:
 
@@ -226,7 +226,7 @@ Check every row of "What a release publishes" with the command in its Check
 column (the `verify` job already ran them), and that the release is public:
 
 ```bash
-gh release view eduide-shared-cache-X.Y.Z -R EduIDE/EduIDE-shared-cache --json url,isDraft,isPrerelease,assets --jq '{url, isDraft, isPrerelease, assets: [.assets[].name]}'
+gh release view vX.Y.Z -R EduIDE/EduIDE-shared-cache --json url,isDraft,isPrerelease,assets --jq '{url, isDraft, isPrerelease, assets: [.assets[].name]}'
 ```
 
 Report to the user: the release link, the artifacts with their check result,

@@ -34,7 +34,7 @@ jobs:
     uses: EduIDE/.github/.github/workflows/release.yml@main
     with:
       version: ${{ inputs.version }}
-      tag_prefix: "eduide-shared-cache-"
+      tag_prefix: "v"
       version_check: |
         got=$(yq -r .version chart/Chart.yaml)
         if [[ "$got" != "$VERSION" ]]; then
