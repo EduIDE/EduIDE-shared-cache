@@ -425,6 +425,6 @@ Migration steps:
 
 Releases are manual: a release pull request (`version` in `chart/Chart.yaml` plus the `CHANGELOG.md` section), then
 `gh workflow run release.yml -R EduIDE/EduIDE-shared-cache -f version=X.Y.Z` after it merges.
-The run drafts the GitHub Release from the CHANGELOG, pushes the image `ghcr.io/eduide/eduide-shared-cache/gradle-cache:X.Y.Z` and the chart `oci://ghcr.io/eduide/charts/eduide-shared-cache:X.Y.Z`, verifies both and then publishes the release, which creates the tag `eduide-shared-cache-X.Y.Z`.
+The run drafts the GitHub Release from the CHANGELOG, pushes the image `ghcr.io/eduide/eduide-shared-cache/gradle-cache:X.Y.Z` and the chart `oci://ghcr.io/eduide/charts/eduide-shared-cache:X.Y.Z`, verifies both and then publishes the release, which creates the tag `vX.Y.Z`.
 Nothing releases on push to `main`, and nothing but a release writes the `X.Y.Z` image tag, so a published chart never changes its image.
 See `.claude/skills/release/SKILL.md`.
